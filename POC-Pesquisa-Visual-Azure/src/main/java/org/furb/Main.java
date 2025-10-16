@@ -16,7 +16,7 @@ public class Main {
     static String key = "chave_azure";
     static String endpoint = "endpoint_azure";
 
-    static void main() {
+    public static void main(String[] args) {
         System.out.println("\nAzure Cognitive Services Computer Vision - Java Quickstart Sample");
 
         // Create an authenticated Computer Vision client.

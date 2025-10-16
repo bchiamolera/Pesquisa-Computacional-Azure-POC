@@ -6,6 +6,10 @@ plugins {
 group = "org.furb"
 version = "1.0-SNAPSHOT"
 
+application {
+    mainClass.set("org.furb.Main") // Replace with your actual main class
+}
+
 repositories {
     mavenCentral()
 }
