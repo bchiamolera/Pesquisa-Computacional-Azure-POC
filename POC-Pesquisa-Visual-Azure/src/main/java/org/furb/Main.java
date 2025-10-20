@@ -1,63 +1,136 @@
 package org.furb;
 
 import com.microsoft.azure.cognitiveservices.vision.computervision.*;
-import com.microsoft.azure.cognitiveservices.vision.computervision.implementation.ComputerVisionImpl;
 import com.microsoft.azure.cognitiveservices.vision.computervision.models.*;
-
-import java.io.*;
-import java.nio.file.Files;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 import java.util.Scanner;
 
 public class Main {
-    static String key = "chave_azure";
-    static String endpoint = "endpoint_azure";
+
+    // ⚙️ Configurações (substitua pela sua chave e endpoint)
+    private static final String KEY = "API_KEY";
+    private static final String ENDPOINT = "API_ENDPOINT";
 
     public static void main(String[] args) {
-        System.out.println("\nAzure Cognitive Services Computer Vision - Java Quickstart Sample");
+        System.out.println("🔍 Azure Computer Vision\n");
 
-        // Create an authenticated Computer Vision client.
-        ComputerVisionClient compVisClient = Authenticate(key, endpoint);
+        ComputerVisionClient client = authenticate(KEY, ENDPOINT);
+        String imageUrl = getImageUrlFromUser();
 
-        // Analyze local and remote images
-        AnalyzeRemoteImage(compVisClient);
+        try {
+            analyzeImage(client, imageUrl);
+        } catch (Exception e) {
+            System.err.println("\n❌ Erro ao analisar a imagem:");
+            e.printStackTrace();
+        }
     }
 
-    public static ComputerVisionClient Authenticate(String key, String endpoint){
+    /**
+     * Cria o cliente autenticado do serviço
+     */
+    private static ComputerVisionClient authenticate(String key, String endpoint) {
         return ComputerVisionManager.authenticate(key).withEndpoint(endpoint);
     }
 
+    /**
+     * Solicita a URL da imagem ao usuário
+     */
+    private static String getImageUrlFromUser() {
+        Scanner scanner = new Scanner(System.in);
+        System.out.print("Insira a URL de uma imagem pública: ");
+        String imageUrl = scanner.nextLine();
+        scanner.close();
+        return imageUrl;
+    }
 
-    public static void AnalyzeRemoteImage(ComputerVisionClient compVisClient) {
-        System.out.println("Insira um URL de uma imagem: ");
-        Scanner input = new Scanner(System.in);
-        String pathToRemoteImage = input.nextLine();
-        input.close();
+    /**
+     * Faz a chamada para o serviço e processa a resposta
+     */
+    private static void analyzeImage(ComputerVisionClient client, String imageUrl) {
+        // Quais características queremos extrair da imagem
+        List<VisualFeatureTypes> features = new ArrayList<>();
+        features.add(VisualFeatureTypes.CATEGORIES);
+        features.add(VisualFeatureTypes.TAGS);
+        features.add(VisualFeatureTypes.DESCRIPTION);
+        features.add(VisualFeatureTypes.OBJECTS);
+        features.add(VisualFeatureTypes.COLOR);
 
-        // This list defines the features to be extracted from the image.
-        List<VisualFeatureTypes> featuresToExtractFromRemoteImage = new ArrayList<>();
-        featuresToExtractFromRemoteImage.add(VisualFeatureTypes.TAGS);
+        System.out.println("\n🧠 Analisando imagem...");
+        ImageAnalysis analysis = client.computerVision().analyzeImage()
+                .withUrl(imageUrl)
+                .withVisualFeatures(features)
+                .execute();
 
-        System.out.println("\n\nAnalyzing an image from a URL ...");
+        printAnalysisResults(analysis);
+    }
 
-        try {
-            // Call the Computer Vision service and tell it to analyze the loaded image.
-            ImageAnalysis analysis = compVisClient.computerVision().analyzeImage().withUrl(pathToRemoteImage)
-                    .withVisualFeatures(featuresToExtractFromRemoteImage).execute();
+    /**
+     * Exibe os resultados no console
+     */
+    private static void printAnalysisResults(ImageAnalysis analysis) {
+        System.out.println("\n📊 RESULTADOS DA ANÁLISE:");
+        System.out.println("---------------------------");
 
-            // Display image tags and confidence values.
-            System.out.println("\nTags: ");
-            for (ImageTag tag : analysis.tags()) {
-                System.out.printf("\'%s\' with confidence %f\n", tag.name(), tag.confidence());
+        printDescription(analysis);
+        printTags(analysis);
+        printObjects(analysis);
+        printColors(analysis);
+    }
+
+    /**
+     * Mostra a descrição (legenda) da imagem
+     */
+    private static void printDescription(ImageAnalysis analysis) {
+        if (analysis.description() != null && analysis.description().captions() != null) {
+            System.out.println("\n📝 Descrições:");
+            for (ImageCaption caption : analysis.description().captions()) {
+                System.out.printf(" - \"%s\" (confiança: %.2f)\n", caption.text(), caption.confidence());
             }
         }
+    }
 
-        catch (Exception e) {
-            System.out.println(e.getMessage());
-            e.printStackTrace();
+    /**
+     * Mostra as tags encontradas
+     */
+    private static void printTags(ImageAnalysis analysis) {
+        if (analysis.tags() != null) {
+            System.out.println("\n🏷️ Tags detectadas:");
+            for (ImageTag tag : analysis.tags()) {
+                System.out.printf(" - %s (confiança: %.2f)\n", tag.name(), tag.confidence());
+            }
+        }
+    }
+
+    /**
+     * Mostra os objetos detectados
+     */
+    private static void printObjects(ImageAnalysis analysis) {
+        if (analysis.objects() != null) {
+            System.out.println("\n📦 Objetos detectados:");
+            for (DetectedObject obj : analysis.objects()) {
+                System.out.printf(" - %s (%.2f) -> posição [x=%d, y=%d, w=%d, h=%d]\n",
+                        obj.objectProperty(),
+                        obj.confidence(),
+                        obj.rectangle().x(),
+                        obj.rectangle().y(),
+                        obj.rectangle().w(),
+                        obj.rectangle().h());
+            }
+        }
+    }
+
+    /**
+     * Mostra cores predominantes
+     */
+    private static void printColors(ImageAnalysis analysis) {
+        if (analysis.color() != null) {
+            System.out.println("\n🎨 Informações de cor:");
+            System.out.println(" - Cor dominante (fundo): " + analysis.color().dominantColorBackground());
+            System.out.println(" - Cor dominante (primeiro plano): " + analysis.color().dominantColorForeground());
+            System.out.println(" - Cores dominantes: " + String.join(", ", analysis.color().dominantColors()));
+            System.out.println(" - É em tons de preto e branco? " + (analysis.color().isBWImg() ? "Sim" : "Não"));
         }
     }
 }
